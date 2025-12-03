@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import streamlit as st
 from scipy import stats
 
-
 # -------------- Helper functions -------------- #
 
 def parse_manual_data(text: str):
@@ -19,7 +18,7 @@ def parse_manual_data(text: str):
         if t == "":
             continue
         try:
-            vals.append(float(t))
+                vals.append(float(t))
         except ValueError:
             # Ignore non-numeric junk
             continue
@@ -38,11 +37,9 @@ def load_csv_data(file) -> np.ndarray:
 
     # Keep only numeric columns
     num_df = df.select_dtypes(include=[np.number])
-
     if num_df.shape[1] == 0:
         return np.array([])
 
-    # If multiple numeric columns, let user choose
     col_name = st.selectbox(
         "Choose column from CSV",
         num_df.columns,
@@ -97,36 +94,37 @@ st.set_page_config(
     layout="wide"
 )
 
-# Simple light aesthetic styling
+# Theme-friendly styling (works in light + dark)
 st.markdown(
     """
     <style>
-    .stApp {
-        background-color: #f7f9fc;
-    }
     .block-container {
         padding-top: 1.5rem;
         padding-bottom: 1.5rem;
         max-width: 1200px;
     }
+
     .section-box {
-        background-color: #ffffff;
-        border: 1px solid #d7dde8;
+        border: 1px solid rgba(148, 163, 184, 0.6);  /* subtle border */
         border-radius: 0.75rem;
         padding: 1rem 1.25rem;
         margin-bottom: 1rem;
-        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
+        background-color: transparent;  /* let theme handle bg color */
     }
+
     .section-title {
         font-weight: 600;
-        color: #1f2937;
-        border-left: 4px solid #4f46e5;
+        border-left: 4px solid #4f46e5;  /* accent line only */
         padding-left: 0.5rem;
         margin-bottom: 0.75rem;
         font-size: 1.05rem;
     }
+
     .main-title {
-        color: #111827;
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
     }
     </style>
     """,
@@ -203,7 +201,6 @@ with col_options:
     dist_dict = get_distributions()
     dist_keys = list(dist_dict.keys())
 
-    # main distribution (used for auto + manual + diagnostics)
     dist_key = st.selectbox(
         "Main distribution",
         dist_keys,
@@ -211,7 +208,6 @@ with col_options:
     )
     dist_obj, dist_label = dist_dict[dist_key]
 
-    # extra dists to overlay and rank
     extra_keys = st.multiselect(
         "Extra distributions to compare (overlay, optional)",
         [k for k in dist_keys if k != dist_key],
@@ -222,7 +218,6 @@ with col_options:
 
     bins = st.slider("Number of histogram bins", 5, 100, 30, step=1)
 
-    # Plot range
     if data.size > 0:
         data_min, data_max = float(np.min(data)), float(np.max(data))
     else:
@@ -256,7 +251,6 @@ with tab_auto:
     if data.size == 0:
         st.info("Provide data first to run the automatic fit.")
     else:
-        # histogram (common for all fits)
         hist_vals, bin_edges = np.histogram(
             data,
             bins=bins,
@@ -265,7 +259,6 @@ with tab_auto:
         )
 
         x_grid = np.linspace(x_min, x_max, 400)
-
         results = []
 
         # ---- main distribution fit ---- #
@@ -300,7 +293,6 @@ with tab_auto:
                 "pdf": pdf_vals,
             })
 
-            # plot main + extras
             fig, ax = plt.subplots(figsize=(7, 4))
             ax.hist(
                 data,
@@ -313,7 +305,7 @@ with tab_auto:
             )
             ax.plot(x_grid, pdf_vals, linewidth=2, label=f"{dist_label} (main)")
 
-            # ---- fit and draw extra distributions ---- #
+            # ---- extra distributions ---- #
             for key in extra_keys:
                 obj, label = dist_dict[key]
                 try:
@@ -322,7 +314,6 @@ with tab_auto:
                     st.warning(f"Could not fit {label}: {e}")
                     continue
 
-                # interpret params
                 s_names = []
                 if obj.shapes is not None:
                     s_names = [s.strip() for s in obj.shapes.split(",") if s.strip()]
@@ -362,7 +353,7 @@ with tab_auto:
             ax.legend()
             st.pyplot(fig)
 
-            # ---- parameters + ranking for main dist ---- #
+            # ---- main distribution parameters ---- #
             param_names = shape_names + ["loc", "scale"]
             param_values = list(shape_params) + [loc, scale]
             df_params = pd.DataFrame(
@@ -371,7 +362,7 @@ with tab_auto:
             st.markdown("**Main distribution parameters**")
             st.table(df_params)
 
-            # ---- ranking table for all fitted dists ---- #
+            # ---- ranking table ---- #
             if results:
                 df_rank = pd.DataFrame(
                     {
@@ -385,11 +376,10 @@ with tab_auto:
                 best_label = df_rank.iloc[0]["Distribution"]
                 st.success(f"Best fit (by MSE): **{best_label}**")
 
-            # ---- diagnostics for main distribution ---- #
+            # ---- diagnostics ---- #
             with st.expander("Advanced diagnostics for main distribution"):
                 c1, c2 = st.columns(2)
 
-                # Residual plot
                 with c1:
                     fig_res, ax_res = plt.subplots(figsize=(4, 3))
                     ax_res.axhline(0, linewidth=1)
@@ -399,7 +389,6 @@ with tab_auto:
                     ax_res.set_title("Residuals")
                     st.pyplot(fig_res)
 
-                # Q–Q plot
                 with c2:
                     qq_x, qq_y = qq_data(data, frozen)
                     fig_qq, ax_qq = plt.subplots(figsize=(4, 3))
@@ -425,12 +414,10 @@ with tab_manual:
     if data.size == 0:
         st.info("Provide data first to use manual fitting.")
     else:
-        # Base stats to choose slider ranges
         dmin, dmax = float(np.min(data)), float(np.max(data))
         drange = dmax - dmin if dmax > dmin else 1.0
         dstd = float(np.std(data, ddof=1)) if data.size > 1 else drange / 4
 
-        # Try to get auto-fit params as defaults (if possible)
         default_params = None
         try:
             default_params = dist_obj.fit(data)
@@ -442,7 +429,6 @@ with tab_manual:
             shape_names = [s.strip() for s in dist_obj.shapes.split(",") if s.strip()]
         n_shapes = len(shape_names)
 
-        # Defaults
         if default_params is not None:
             def_shapes = default_params[:n_shapes]
             def_loc = default_params[n_shapes]
@@ -457,7 +443,6 @@ with tab_manual:
             "(adjust and see how the fit quality changes)."
         )
 
-        # Shape parameters
         manual_shape_params = []
         for i, name in enumerate(shape_names):
             label = name if name else f"shape{i+1}"
@@ -473,7 +458,6 @@ with tab_manual:
             )
             manual_shape_params.append(manual_val)
 
-        # loc and scale sliders
         loc_val = st.slider(
             "loc",
             min_value=dmin - drange,
@@ -491,7 +475,6 @@ with tab_manual:
             value=scale_default,
         )
 
-        # Build frozen dist and pdf
         frozen_manual = dist_obj(*manual_shape_params, loc=loc_val, scale=scale_val)
         x_grid_m = np.linspace(x_min, x_max, 400)
         pdf_manual = frozen_manual.pdf(x_grid_m)
@@ -507,7 +490,6 @@ with tab_manual:
             hist_vals_m, bin_edges_m, pdf_manual
         )
 
-        # Plot
         fig2, ax2 = plt.subplots(figsize=(7, 4))
         ax2.hist(
             data,
@@ -530,7 +512,6 @@ with tab_manual:
         ax2.legend()
         st.pyplot(fig2)
 
-        # Show parameters and error
         param_names_m = shape_names + ["loc", "scale"]
         param_vals_m = manual_shape_params + [loc_val, scale_val]
         df_params_m = pd.DataFrame(
